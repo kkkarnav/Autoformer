@@ -65,19 +65,19 @@ python -u run.py \
 python -u run.py \
   --is_training 1 \
   --root_path ./dataset/weather/ \
-  --data_path weather.csv \
+  --data_path rainfall_data_ip.csv \
   --model_id weather_96_720 \
   --model Autoformer \
   --data custom \
   --features M \
   --seq_len 96 \
   --label_len 48 \
-  --pred_len 720 \
+  --pred_len 1 \
   --e_layers 2 \
   --d_layers 1 \
   --factor 3 \
-  --enc_in 21 \
-  --dec_in 21 \
-  --c_out 21 \
+  --enc_in 569 \
+  --dec_in 569 \
+  --c_out 569 \
   --des 'Exp' \
   --itr 1

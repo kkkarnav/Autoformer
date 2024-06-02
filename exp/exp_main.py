@@ -1,4 +1,7 @@
 import logging
+from sklearn.neural_network import MLPRegressor
+import numpy as np
+
 logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%Y-%m-%d:%H:%M:%S',
     level=logging.INFO)
@@ -173,9 +176,14 @@ class Exp_Main(Exp_Basic):
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
+        meta_model = MLPRegressor(hidden_layer_sizes=(50, 50), max_iter=1000, random_state=42)
+        meta_model.fit(features, target)
         return
 
     def test(self, setting, test=0):
+        ncep=""
+        ukmet=""
+        meta_model= ""
         test_data, test_loader = self._get_data(flag='test')
         if test:
             print('loading model')
@@ -218,13 +226,17 @@ class Exp_Main(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         print('test shape:', preds.shape, trues.shape)
+        
+
+        features = np.column_stack((preds, ncep, ukmet))
+        combined_predictions = meta_model.predict(features)
 
         # result save
         folder_path = './results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        mae, mse, rmse, mape, mspe = metric(preds, trues)
+        mae, mse, rmse, mape, mspe = metric(combined_predictions, trues)
         print('mse:{}, mae:{}'.format(mse, mae))
         f = open("result.txt", 'a')
         f.write(setting + "  \n")
@@ -234,7 +246,7 @@ class Exp_Main(Exp_Basic):
         f.close()
 
         np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
-        np.save(folder_path + 'pred.npy', preds)
+        np.save(folder_path + 'pred.npy', combined_predictions)
         np.save(folder_path + 'true.npy', trues)
 
         return

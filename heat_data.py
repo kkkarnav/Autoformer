@@ -41,12 +41,27 @@ def read_heat_data(variable):
 
     df = df.reset_index(drop=True)
     count = (df == -99).sum()
-    df = df.drop(columns=count[count > 100].index)
-    df = df.reset_index(drop=True).replace(-99, 27)
+    df = df.drop(columns=count[count > 30].index)
+    df = df.reset_index(drop=True).replace(-99, 26.98989)
 
     # print(f'(7.5 x 70.5) on {df.loc[0, ("lat", "lon")]}: {df.loc[0, ("7.5", "70.5")]} C')
 
     return df
+
+
+def process_raw_data(dfmin, dfmax):
+
+    dfmean = dfmin.copy()
+    dfrange = dfmin.copy()
+
+    for column in tqdm(range(1, len(dfmin.iloc[0]))):
+        for row in range(len(dfmin)):
+            dfmean.iloc[row, column] = (dfmax.iloc[row, column] + dfmin.iloc[row, column])/2
+            dfrange.iloc[row, column] = dfmax.iloc[row, column] - dfmin.iloc[row, column]
+
+    dfmean.to_csv(f"{OUTPUT_DIR}/0.5_tmean.csv")
+    dfrange.to_csv(f"{OUTPUT_DIR}/0.5_trange.csv")
+    return dfmean, dfrange
 
 
 def visualize_raw_data(df, label):
@@ -89,7 +104,7 @@ def visualize_raw_data(df, label):
 
     # India daily mean
     ax = df.iloc[:, 1:-2].mean(axis=1).plot(color="firebrick")
-    ax.set_xticks(df.index[::365])
+    ax.set_xticks(df.index[::366])
     ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
     ax.set_title(f'Daily means of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
@@ -100,7 +115,7 @@ def visualize_raw_data(df, label):
     ax = df.iloc[:, 1:-2].max(axis=1).plot(color="red", alpha=0.5)
     ax = df.iloc[:, 1:-2].min(axis=1).plot(color="steelblue", alpha=0.5)
     ax = df.iloc[:, 1:-2].mean(axis=1).plot(color="firebrick")
-    ax.set_xticks(df.index[::365])
+    ax.set_xticks(df.index[::366])
     ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
     ax.set_title(f'Daily min and max of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
@@ -109,7 +124,7 @@ def visualize_raw_data(df, label):
 
     # Chunk of 100 grids
     ax = df.iloc[:, 1:101].mean(axis=1).plot(color="firebrick")
-    ax.set_xticks(df.index[::365])
+    ax.set_xticks(df.index[::366])
     ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
     ax.set_title(f'Daily means of {label} temperature across 100 grids', weight='bold')
     ax.set_xlabel('Date')
@@ -118,7 +133,7 @@ def visualize_raw_data(df, label):
 
     # A single grid
     ax = df.iloc[:, 1].plot(color="firebrick")
-    ax.set_xticks(df.index[::365])
+    ax.set_xticks(df.index[::366])
     ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
     ax.set_title(f'Daily means of {label} temperature of 8Nx77E', weight='bold')
     ax.set_xlabel('Date')
@@ -126,34 +141,51 @@ def visualize_raw_data(df, label):
     plt.show()
 
 
-def process_raw_data(dfmin, dfmax):
+def convert_to_format(df):
 
-    dfmean = dfmin.copy()
-    dfrange = dfmin.copy()
+    # Melt the df
+    df = df.melt(id_vars=[("lat", "lon")], value_name="TEMP")
+    df = df.rename(columns={("lat", "lon"): "date", "variable_0": "LAT", "variable_1": "LONG"})
 
-    for column in tqdm(range(1, len(dfmin.iloc[0]))):
-        for row in range(len(dfmin)):
-            dfmean.iloc[row, column] = (dfmax.iloc[row, column] + dfmin.iloc[row, column])/2
-            dfrange.iloc[row, column] = dfmax.iloc[row, column] - dfmin.iloc[row, column]
+    # Sort it
+    df["LAT"] = df["LAT"].apply(lambda x: float(x))
+    df["LONG"] = df["LONG"].apply(lambda x: float(x))
+    df = df.sort_values(by=["LAT", "LONG", "date"]).reset_index(drop=True)
 
-    dfmean.to_csv(f"{OUTPUT_DIR}/0.5_tmean.csv")
-    dfrange.to_csv(f"{OUTPUT_DIR}/0.5_trange.csv")
-    return dfmean, dfrange
+    # Shift the value column to second
+    cols = list(df.columns)
+    df = df[[cols[0], cols[-1]] + cols[1:-1]]
+
+    pprint(df)
+
+    df.to_csv(f"{OUTPUT_DIR}/0.5_tmean_india.csv", index=False)
+    return df
 
 
 if __name__ == "__main__":
 
+    # Get raw tmin and tmax data as GRD files from IMDlib
     # grab_heat_data("tmin")
     # grab_heat_data("tmax")
+
+    # Read raw tmin and tmax data into csv format
     tmin = read_heat_data("tmin")
     tmax = read_heat_data("tmax")
 
+    # Visualize temporal trends in min and max data
     # visualize_raw_data(tmin, "min.")
     # visualize_raw_data(tmax, "min.")
 
+    # Convert tmin and tmax to the mean temperature per day
     tmean, trange = process_raw_data(tmin, tmax)
 
-    pprint(tmean)
-    pprint(trange)
-    visualize_raw_data(tmin, "mean")
-    visualize_raw_data(tmax, "range of")
+    # Read the processed tmean data
+    tmean = pd.read_csv(f"{OUTPUT_DIR}/0.5_tmean.csv", header=[0, 1], index_col=0)
+    trange = pd.read_csv(f"{OUTPUT_DIR}/0.5_trange.csv", header=[0, 1], index_col=0)
+
+    # pprint(tmean)
+    # pprint(trange)
+    # visualize_raw_data(tmean, "mean")
+    # visualize_raw_data(trange, "range of")
+
+    tmeanf = convert_to_format(tmean)

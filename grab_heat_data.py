@@ -6,11 +6,24 @@ import warnings
 import imdlib as imd
 
 warnings.filterwarnings("ignore")
-OUTPUT_DIR = "./dataset/heat"
+OUTPUT_DIR = "./dataset/heat_main"
+
+
+def grab_heat_data(variable):
+    # Data download parameters
+    output_path = f'{OUTPUT_DIR}'
+    start_year = 1951
+    end_year = 2023
+
+    # Earliest available data is 1950 onwards
+    data = imd.get_data(variable, start_year, end_year, fn_format="yearwise", file_dir=output_path)
+    df = data.get_xarray().to_dataframe().unstack(level=1).unstack(level=1)
+    df.to_csv(f"{OUTPUT_DIR}/main_{variable}.csv")
+
+    print(df)
 
 
 def grab_rt_heat_data(variable):
-
     # Data download parameters
     output_path = f'{OUTPUT_DIR}/{variable}'
 
@@ -30,12 +43,25 @@ def grab_rt_heat_data(variable):
         df.to_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv")
 
 
-def read_rt_heat_data(variable):
+def read_heat_data(variable):
+    df = pd.DataFrame()
 
+    df = pd.read_csv(f"{OUTPUT_DIR}/main_{variable}.csv", header=[1, 2])[1:] \
+        .reset_index(drop=True) \
+        .replace(99.9000015258789, -99)
+
+    count = (df == -99).sum()
+    df = df.drop(columns=count[count > 40].index)
+    df = df.reset_index(drop=True).replace(-99, 25.98989)
+
+    return df
+
+
+def read_rt_heat_data(variable):
     df = pd.DataFrame()
     for year in range(2015, 2024):
-        year_df = pd.read_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv", header=[1, 2])[1:]\
-            .reset_index(drop=True)\
+        year_df = pd.read_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv", header=[1, 2])[1:] \
+            .reset_index(drop=True) \
             .replace(99.9000015258789, -99)
         df = pd.concat([df, year_df])
 
@@ -44,28 +70,11 @@ def read_rt_heat_data(variable):
     df = df.drop(columns=count[count > 30].index)
     df = df.reset_index(drop=True).replace(-99, 26.98989)
 
-    # print(f'(7.5 x 70.5) on {df.loc[0, ("lat", "lon")]}: {df.loc[0, ("7.5", "70.5")]} C')
-
+    df.to_csv(f"{OUTPUT_DIR}/0.5_{variable}.csv")
     return df
 
 
-def process_raw_rt_data(dfmin, dfmax):
-
-    dfmean = dfmin.copy()
-    dfrange = dfmin.copy()
-
-    for column in tqdm(range(1, len(dfmin.iloc[0]))):
-        for row in range(len(dfmin)):
-            dfmean.iloc[row, column] = (dfmax.iloc[row, column] + dfmin.iloc[row, column])/2
-            dfrange.iloc[row, column] = dfmax.iloc[row, column] - dfmin.iloc[row, column]
-
-    dfmean.to_csv(f"{OUTPUT_DIR}/0.5_tmean.csv")
-    dfrange.to_csv(f"{OUTPUT_DIR}/0.5_trange.csv")
-    return dfmean, dfrange
-
-
 def visualize_raw_data(df, label):
-
     # India annual mean
     df["year"] = pd.to_datetime(df.iloc[:, 0]).apply(lambda x: x.year)
     annual_means = df.iloc[:, 1:].groupby("year").mean()
@@ -141,8 +150,21 @@ def visualize_raw_data(df, label):
     plt.show()
 
 
-def convert_to_format(df):
+def process_raw_data(dfmin, dfmax, prefix):
+    dfmean = dfmin.copy()
+    dfrange = dfmin.copy()
 
+    for column in tqdm(range(1, len(dfmin.iloc[0]))):
+        for row in range(len(dfmin)):
+            dfmean.iloc[row, column] = (dfmax.iloc[row, column] + dfmin.iloc[row, column]) / 2
+            dfrange.iloc[row, column] = dfmax.iloc[row, column] - dfmin.iloc[row, column]
+
+    dfmean.to_csv(f"{OUTPUT_DIR}/{prefix}_tmean.csv")
+    dfrange.to_csv(f"{OUTPUT_DIR}/{prefix}_trange.csv")
+    return dfmean, dfrange
+
+
+def convert_to_format(df, variable, prefix):
     # Melt the df
     df = df.melt(id_vars=[("lat", "lon")], value_name="TEMP")
     df = df.rename(columns={("lat", "lon"): "date", "variable_0": "LAT", "variable_1": "LONG"})
@@ -158,43 +180,58 @@ def convert_to_format(df):
 
     pprint(df)
 
-    df.to_csv(f"{OUTPUT_DIR}/0.5_tmean_india.csv", index=False)
+    df.to_csv(f"{OUTPUT_DIR}/{prefix}_{variable}_india.csv", index=False)
     return df
 
 
 def get_and_process_real_time_data():
-
     # Get raw tmin and tmax data as GRD files from IMDlib
     # grab_heat_data("tmin")
     # grab_heat_data("tmax")
 
     # Read raw tmin and tmax data into csv format
-    tmin = read_rt_heat_data("tmin")
-    tmax = read_rt_heat_data("tmax")
-
-    # Visualize temporal trends in min and max data
-    # visualize_raw_data(tmin, "min.")
-    visualize_raw_data(tmax, "max.")
+    tmin, tmax = read_rt_heat_data("tmin"), read_rt_heat_data("tmax")
 
     # Convert tmin and tmax to the mean temperature per day
-    # tmean, trange = process_raw_data(tmin, tmax)
+    # tmean, trange = process_raw_data(tmin, tmax, "0.5")
 
     # Read the processed tmean data
     tmean = pd.read_csv(f"{OUTPUT_DIR}/0.5_tmean.csv", header=[0, 1], index_col=0)
     trange = pd.read_csv(f"{OUTPUT_DIR}/0.5_trange.csv", header=[0, 1], index_col=0)
 
-    # pprint(tmean)
-    # pprint(trange)
+    # Visualize temporal trends in min and max data
+    # visualize_raw_data(tmin, "min.")
+    # visualize_raw_data(tmax, "max.")
     # visualize_raw_data(tmean, "mean")
     # visualize_raw_data(trange, "range of")
 
-    tmeanf = convert_to_format(tmean)
+    tmeanf = convert_to_format(tmax, "tmax", "0.5")
 
 
-def get_and_process_main_data()
-    pass
+def get_and_process_main_data():
+    # Get raw tmin and tmax data as GRD files from IMDlib
+    # grab_heat_data("tmin")
+    # grab_heat_data("tmax")
+
+    # Read raw tmin and tmax data into csv format
+    tmin, tmax = read_heat_data("tmin"), read_heat_data("tmax")
+
+    # Convert tmin and tmax to the mean temperature per day
+    # tmean, trange = process_raw_data(tmin, tmax, "main")
+
+    # Read the processed tmean data
+    tmean = pd.read_csv(f"{OUTPUT_DIR}/main_tmean.csv", header=[0, 1], index_col=0)
+    trange = pd.read_csv(f"{OUTPUT_DIR}/main_trange.csv", header=[0, 1], index_col=0)
+
+    # Visualize temporal trends in min and max data
+    # visualize_raw_data(tmin, "min.")
+    # visualize_raw_data(tmax, "max.")
+    # visualize_raw_data(tmean, "mean")
+    # visualize_raw_data(trange, "range of")
+
+    tmeanf = convert_to_format(tmax, "tmax", "main")
 
 
 if __name__ == "__main__":
-    get_and_process_real_time_data()
+    # get_and_process_real_time_data()
     get_and_process_main_data()

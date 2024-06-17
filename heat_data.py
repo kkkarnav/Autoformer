@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 OUTPUT_DIR = "./dataset/heat"
 
 
-def grab_heat_data(variable):
+def grab_rt_heat_data(variable):
 
     # Data download parameters
     output_path = f'{OUTPUT_DIR}/{variable}'
@@ -27,14 +27,14 @@ def grab_heat_data(variable):
         # Call the API and dump to file
         data = imd.get_real_data(variable, start_day, end_day, file_dir=output_path)
         df = data.get_xarray().to_dataframe().unstack(level=1).unstack(level=1)
-        df.to_csv(f"{OUTPUT_DIR}/0.5_{variable}_{year}.csv")
+        df.to_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv")
 
 
-def read_heat_data(variable):
+def read_rt_heat_data(variable):
 
     df = pd.DataFrame()
     for year in range(2015, 2024):
-        year_df = pd.read_csv(f"{OUTPUT_DIR}/0.5_{variable}_{year}.csv", header=[1, 2])[1:]\
+        year_df = pd.read_csv(f"{OUTPUT_DIR}/{variable}/0.5_{variable}_{year}.csv", header=[1, 2])[1:]\
             .reset_index(drop=True)\
             .replace(99.9000015258789, -99)
         df = pd.concat([df, year_df])
@@ -49,7 +49,7 @@ def read_heat_data(variable):
     return df
 
 
-def process_raw_data(dfmin, dfmax):
+def process_raw_rt_data(dfmin, dfmax):
 
     dfmean = dfmin.copy()
     dfrange = dfmin.copy()
@@ -162,22 +162,22 @@ def convert_to_format(df):
     return df
 
 
-if __name__ == "__main__":
+def get_and_process_real_time_data():
 
     # Get raw tmin and tmax data as GRD files from IMDlib
     # grab_heat_data("tmin")
     # grab_heat_data("tmax")
 
     # Read raw tmin and tmax data into csv format
-    tmin = read_heat_data("tmin")
-    tmax = read_heat_data("tmax")
+    tmin = read_rt_heat_data("tmin")
+    tmax = read_rt_heat_data("tmax")
 
     # Visualize temporal trends in min and max data
     # visualize_raw_data(tmin, "min.")
-    # visualize_raw_data(tmax, "min.")
+    visualize_raw_data(tmax, "max.")
 
     # Convert tmin and tmax to the mean temperature per day
-    tmean, trange = process_raw_data(tmin, tmax)
+    # tmean, trange = process_raw_data(tmin, tmax)
 
     # Read the processed tmean data
     tmean = pd.read_csv(f"{OUTPUT_DIR}/0.5_tmean.csv", header=[0, 1], index_col=0)
@@ -189,3 +189,12 @@ if __name__ == "__main__":
     # visualize_raw_data(trange, "range of")
 
     tmeanf = convert_to_format(tmean)
+
+
+def get_and_process_main_data()
+    pass
+
+
+if __name__ == "__main__":
+    get_and_process_real_time_data()
+    get_and_process_main_data()

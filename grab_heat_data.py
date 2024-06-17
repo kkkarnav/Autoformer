@@ -95,56 +95,18 @@ def visualize_raw_data(df, label):
 
     # India monthly mean
     df["month"] = pd.to_datetime(df.iloc[:, 0]).apply(lambda x: x.month)
-    monthly_means = df.iloc[:, 1:].groupby(["year", "month"]).mean()
+    monthly_means = df.iloc[:, 1:].groupby(["year", "month"]).mean().iloc[-240:]
     ax = monthly_means.mean(axis=1).plot(color="firebrick")
     ax.set_title(f'Monthly means of {label} temperature across India', weight='bold')
     ax.set_xlabel('Date')
     ax.set_ylabel('Mean temp')
     plt.show()
 
-    # India monthly min and max
-    ax = monthly_means.max(axis=1).plot(color="red", alpha=0.5)
-    ax = monthly_means.min(axis=1).plot(color="steelblue", alpha=0.5)
-    ax = monthly_means.mean(axis=1).plot(color="firebrick")
-    ax.set_title(f'Monthly min and max of {label} temperature across India', weight='bold')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Mean temp')
-    plt.show()
-
     # India daily mean
-    ax = df.iloc[:, 1:-2].mean(axis=1).plot(color="firebrick")
-    ax.set_xticks(df.index[::366])
-    ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
+    ax = df.iloc[:, 1:-2].mean(axis=1).iloc[-1825:].plot(color="firebrick")
+    ax.set_xticks(df.iloc[-1825:].index[::366])
+    ax.set_xticklabels(df.iloc[-1825:].iloc[:, 0][::366].apply(lambda x: x[:4]))
     ax.set_title(f'Daily means of {label} temperature across India', weight='bold')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Mean temp')
-    plt.show()
-
-    # India daily min and max
-    ax = df.iloc[:, 1:-2].max(axis=1).plot(color="red", alpha=0.5)
-    ax = df.iloc[:, 1:-2].min(axis=1).plot(color="steelblue", alpha=0.5)
-    ax = df.iloc[:, 1:-2].mean(axis=1).plot(color="firebrick")
-    ax.set_xticks(df.index[::366])
-    ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
-    ax.set_title(f'Daily min and max of {label} temperature across India', weight='bold')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Mean temp')
-    plt.show()
-
-    # Chunk of 100 grids
-    ax = df.iloc[:, 1:101].mean(axis=1).plot(color="firebrick")
-    ax.set_xticks(df.index[::366])
-    ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
-    ax.set_title(f'Daily means of {label} temperature across 100 grids', weight='bold')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Mean temp')
-    plt.show()
-
-    # A single grid
-    ax = df.iloc[:, 1].plot(color="firebrick")
-    ax.set_xticks(df.index[::366])
-    ax.set_xticklabels(df.iloc[:, 0][::366].apply(lambda x: x[:4]))
-    ax.set_title(f'Daily means of {label} temperature of 8Nx77E', weight='bold')
     ax.set_xlabel('Date')
     ax.set_ylabel('Mean temp')
     plt.show()
@@ -225,11 +187,11 @@ def get_and_process_main_data():
 
     # Visualize temporal trends in min and max data
     # visualize_raw_data(tmin, "min.")
-    # visualize_raw_data(tmax, "max.")
-    # visualize_raw_data(tmean, "mean")
+    visualize_raw_data(tmax, "max.")
+    visualize_raw_data(tmean, "mean")
     # visualize_raw_data(trange, "range of")
 
-    tmeanf = convert_to_format(tmax, "tmax", "main")
+    # tmeanf = convert_to_format(tmax, "tmax", "main")
 
 
 if __name__ == "__main__":

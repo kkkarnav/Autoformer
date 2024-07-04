@@ -188,7 +188,7 @@ def get_and_process_main_data():
     # Visualize temporal trends in min and max data
     # visualize_raw_data(tmin, "min.")
     visualize_raw_data(tmax, "max.")
-    visualize_raw_data(tmean, "mean")
+    # visualize_raw_data(tmean, "mean")
     # visualize_raw_data(trange, "range of")
 
     # tmeanf = convert_to_format(tmax, "tmax", "main")
